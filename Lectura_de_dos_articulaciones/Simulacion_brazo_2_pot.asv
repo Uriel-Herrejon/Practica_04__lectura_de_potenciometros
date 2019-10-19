@@ -1,0 +1,99 @@
+%% Limpia la memoria de variables
+clear all
+close all
+clc
+
+%% Cierra y elimina cualquier objeto de tipo serial 
+
+if ~isempty(instrfind)
+    fclose(instrfind);
+    delete(instrfind);
+end
+
+%% Creación de un objeto tipo serial
+arduino = serial('COM5','BaudRate',9600);
+fopen(arduino);
+if arduino.status == 'open'
+    disp('Arduino conectado correctamente \n');
+else
+    disp('No se ha conectado el arduino \n');
+    return
+end
+
+%% Se pide la longuitud de la primera articulación
+L1= input('Ingresa la longitud para la articulación 1:\n');
+L2= input('Ingresa la longitud para la articulación 2:\n');
+
+%% Se establece el punto 0
+p1=[0 0 0]';
+
+%% Se establece el número de muestras y el contador para pder utilizarlos
+% en el blucle principal 
+
+numero_muestras = 1000;
+y = zeros(1,numero_muestras); 
+contador_muestras = 1; 
+
+figure('Name','Serial communication: Matlab + Arduino. TESE-Robótica')
+title('SERIAL COMMUNICATION MATLAB + ARDUINO');
+xlabel('Número de muestra');
+ylabel('Valor');
+grid on;
+hold on;
+
+while 1
+    clf 
+    printAxis();
+    a = fscanf(arduino,'%d,%d')';
+    angdeg = (a(1)-512)*130/512;
+    angrad = deg2rad(angdeg);
+    TRz1 = [ cos(angrad) -sin(angrad) 0 0 ; sin(angrad) cos(angrad) 0 0 ; 0 0 1 0;  0 0 0 1 ];
+    TTx1 = [ 1 0 0 L1; 0 1 0 0; 0 0 1 0; 0 0 0 1];         
+    T1 = TRz1 * TTx1;                 
+    p2 = T1 (1:3,4); 
+    eje_x_1 = T1(1:3,1); 
+    eje_y_1 = T1(1:3,2);           
+    line([p1(1) p2(1)],[p1(2) p2(2)],[p1(3) p2(3)],'linewidth',4) 
+    line([p1(1) eje_x_1(1)],[p1(2) eje_x_1(2)],[p1(3) eje_x_1(3)],'linewidth',5,'color',[0 0 0])
+    line([p1(1) eje_y_1(1)],[p1(2) eje_y_1(2)],[p1(3) eje_y_1(3)],'linewidth',5,'color',[0 0 0])
+    
+  %%  Esta función fue creada en otro script con el código para  
+    % establecer los ejes del plano carteciano, los cuales por el 
+    % por el momento son el eje X y el eje Y
+    printAxis();
+%% Se le el valor del sgundo  potenciometro -512 a 512 
+    angdeg2 = (a(2)-512)*130/512;
+%% Se convierten los grados a radianes de la lectur del potenciometro 2    
+    angrad2 = deg2rad(angdeg2);
+%% Se colocó la matriz de rotación en el eje Z de la articulación 2
+    TRz2 = [cos(angrad2) -sin(angrad2) 0 0 ; sin(angrad2) cos(angrad2) 0 0; 0 0 1 0; 0 0 0 1];
+%% Se coloca la matriz traslacion 2 en el eje X dejando como variable L2 
+   % la cual será introducida por el usuario
+    TTx2 = [1 0 0 L2; 0 1 0 0; 0 0 1 0; 0 0 0 1];
+% Se guarda en la variable T1 la multiplicación de la matriz de
+    %rotación en el eje Z y la matriz de traslación en el eje X para 
+    %poder crear una matriz de transformacion homogenea y poder realizar la
+    %impresión de las lineas
+    T2 = TRz2*TTx2;
+%% Se realiza el efector final del brazo r
+    Tf = T1*T2;
+%% Se encarga de tomar la posicion final de la matriz  T2 recuperando 
+    %el valor 1 hasta el 3 de la columna 4    
+  
+    p3 = Tf(1:3,4);      
+    eje_x_2 = p2 + Tf(1:3,1);
+    eje_y_2 = p2 + Tf(1:3,2); 
+    eje_x_3 = p3 + Tf(1:3,1);
+    eje_y_3 = p3 + Tf(1:3,2);                           
+    line([p2(1) p3(1)],[p2(2) p3(2)],[p2(3) p3(3)],'color',[0 1 1],'linewidth',2.5)
+    line([p2(1) eje_x_2(1)],[p2(2) eje_x_2(2)],[p2(3) eje_x_2(3)],'linewidth',5,'color',[0 0 0])
+    line([p2(1) eje_y_2(1)],[p2(2) eje_y_2(2)],[p2(3) eje_y_2(3)],'linewidth',5,'color',[0 0 0])
+    line([p3(1) eje_x_3(1)],[p3(2) eje_x_3(2)],[p3(3) eje_x_3(3)],'linewidth',5,'color',[0 0 0]) 
+    line([p3(1) eje_y_3(1)],[p3(2) eje_y_3(2)],[p3(3) eje_y_3(3)],'linewidth',5,'color',[0 0 0]) 
+    pause(0.01);
+end
+
+%% Cierre de puertos 
+fclose(arduino);
+delete(arduino);
+clear all; 
